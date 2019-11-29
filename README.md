@@ -1,4 +1,4 @@
-`img2braille`
+## `img2braille`
 
 Converts images to braille.
 
@@ -24,4 +24,5 @@ Converts images to braille.
 
 Todo:
 
+ - [ ] more filtering options?
  - [ ] add colour support

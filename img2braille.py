@@ -1,7 +1,6 @@
 import argparse
 import sys
 import cv2
-import numpy as np
 
 
 class CannotReadImage(Exception):
@@ -53,7 +52,7 @@ def resize(img, ratio):
 
 
 def smooth(img):
-    return cv2.bilateralFilter(img, 9, sigmaSpace=10, sigmaColor=20)
+    return cv2.bilateralFilter(img, 9, sigmaSpace=10, sigmaColor=10)
 
 
 def threshold(img):
@@ -61,7 +60,7 @@ def threshold(img):
                                  cv2.THRESH_BINARY, 11, 2)
 
 
-def convert_to_braille(img: np.array, invert: bool = False):
+def convert_to_braille(img, invert=False):
     # Image already resized appropriately
     height, width = img.shape
     for y in range((height // 3) - 1):
@@ -105,13 +104,16 @@ def img2braille(
 def main():
     parser = argparse.ArgumentParser(description='Converts image to braille.')
     parser.add_argument('file', metavar='filename', type=str)
-    parser.add_argument('--enable-smoothing', dest='smoothing',
+    parser.add_argument('--disable-smoothing', dest='disable_smoothing',
                         action='store_true',
                         default=False,
-                        help='Use bilateral filter for image smoothing.')
+                        help='Use bilateral filter for image smoothing')
     parser.add_argument('--grayscale-method', dest='grayscale_method',
                         type=str, default='luma', choices={'luma', 'avg'},
                         help='Grayscale method (luma/avg)')
+    parser.add_argument('--no-resize', dest='no_resize', action='store_true',
+                        default=False,
+                        help='Prevent resizing')
     parser.add_argument('--width', dest='width', type=int, default=None,
                         help='Width of result')
     parser.add_argument('--height', dest='height', type=int, default=None,
@@ -120,8 +122,9 @@ def main():
                         help='Invert image')
     args = parser.parse_args()
 
-    resize_size = size_max
-    if args.width and not args.height:
+    if args.no_resize:
+        resize_size = size_max
+    elif args.width and not args.height:
         resize_size = size_from_width_ratio(args.width)
     elif args.height and not args.width:
         resize_size = size_from_height_ratio(args.height)
@@ -135,7 +138,7 @@ def main():
             "luma": grayscale_luma,
             "avg": grayscale_avg,
         }[args.grayscale_method],
-        smoothing=args.smoothing,
+        smoothing=not args.disable_smoothing,
         invert=args.invert,
     )
     for c in result:
