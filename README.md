@@ -25,4 +25,4 @@ Converts images to braille.
 Todo:
 
  - [ ] more filtering options?
- - [ ] add colour support
+ - [x] add colour support

@@ -1,6 +1,7 @@
 import argparse
 import sys
 import cv2
+import numpy as np
 
 
 class CannotReadImage(Exception):
@@ -18,12 +19,10 @@ def grayscale_luma(img):
 
 
 def open_image_in_grayscale(filename, method=grayscale_luma):
-    img = cv2.imread(filename)
+    img = cv2.imread(filename, cv2.IMREAD_COLOR)
     if img is None:
         raise CannotReadImage(filename)
-    if len(img.shape) == 2:
-        return img
-    return method(img)
+    return img, method(img)
 
 
 def size_max(w, h):
@@ -43,7 +42,7 @@ def size_from_height_ratio(new_height):
 
 
 def resize(img, ratio):
-    h, w = img.shape
+    h, w = img.shape[0], img.shape[1]
     new_size = (
         int(w * ratio),
         int(h * ratio),
@@ -60,7 +59,7 @@ def threshold(img):
                                  cv2.THRESH_BINARY, 11, 2)
 
 
-def convert_to_braille(img, invert=False):
+def convert_to_braille(img, colour_img=None, invert=False):
     # Image already resized appropriately
     height, width = img.shape
     for y in range((height // 3) - 1):
@@ -71,8 +70,25 @@ def convert_to_braille(img, invert=False):
             num = sum((2**i) * x for i, x in enumerate(seq))
             if invert:
                 num = 63 - num
+
+            # If we're in invert mode then it makes no sense
+            # to compute the colour
+            if not invert and colour_img is not None:
+                yield seq_dominant_colour(colour_img[y*3:(y+1)*3, x*2:(x+1)*2])
+
             yield int_to_braille(num)
+
+            if not invert and colour_img is not None:
+                yield "\x1b[0m"
         yield "\n"
+
+
+def seq_dominant_colour(seq):
+    B = seq[:, :, 0]
+    G = seq[:, :, 1]
+    R = seq[:, :, 2]
+    b, g, r = int(np.mean(B)), int(np.mean(G)), int(np.mean(R))
+    return f"\x1b[38;2;{r};{g};{b}m"
 
 
 def int_to_braille(i: int) -> str:
@@ -86,19 +102,27 @@ def img2braille(
     grayscale_method=grayscale_luma,
     smoothing=True,
     invert=False,
+    colour=False,
 ):
-    img = open_image_in_grayscale(filename, method=grayscale_method)
+    colour_img, img = open_image_in_grayscale(
+        filename,
+        method=grayscale_method,
+    )
 
     # Resizing
     h, w = img.shape
     img = resize(img, resize_size(w, h))
+
+    if colour:
+        colour_img = resize(colour_img, resize_size(w, h))
 
     # Perform smoothing
     if smoothing:
         img = smooth(img)
 
     img = threshold(img)
-    return convert_to_braille(img, invert=invert)
+    colour_img = None if not colour else colour_img
+    return convert_to_braille(img, colour_img=colour_img, invert=invert)
 
 
 def main():
@@ -120,6 +144,8 @@ def main():
                         help='Height of result')
     parser.add_argument('--invert', dest='invert', action='store_true',
                         help='Invert image')
+    parser.add_argument('--colour', dest='colour', action='store_true',
+                        help='Emit true colour')
     args = parser.parse_args()
 
     if args.no_resize:
@@ -140,6 +166,7 @@ def main():
         }[args.grayscale_method],
         smoothing=not args.disable_smoothing,
         invert=args.invert,
+        colour=args.colour,
     )
     for c in result:
         sys.stdout.write(c)
