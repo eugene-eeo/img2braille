@@ -8,13 +8,7 @@ class CannotReadImage(Exception):
     pass
 
 
-def grayscale_avg(img):
-    b, g, r = cv2.split(img)
-    return ((b + g + r) / 3).astype('uint8')
-
-
 def grayscale_luma(img):
-    # Otherwise take max components
     return img.max(axis=2)
 
 
@@ -99,14 +93,13 @@ def int_to_braille(i: int) -> str:
 def img2braille(
     filename,
     resize_size=size_max,
-    grayscale_method=grayscale_luma,
     smoothing=True,
     invert=False,
     colour=False,
 ):
     colour_img, img = open_image_in_grayscale(
         filename,
-        method=grayscale_method,
+        method=grayscale_luma,
     )
 
     # Resizing
@@ -132,9 +125,6 @@ def main():
                         action='store_true',
                         default=False,
                         help='Use bilateral filter for image smoothing')
-    parser.add_argument('--grayscale-method', dest='grayscale_method',
-                        type=str, default='luma', choices={'luma', 'avg'},
-                        help='Grayscale method (luma/avg)')
     parser.add_argument('--no-resize', dest='no_resize', action='store_true',
                         default=False,
                         help='Prevent resizing')
@@ -160,10 +150,6 @@ def main():
     result = img2braille(
         filename=args.file,
         resize_size=resize_size,
-        grayscale_method={
-            "luma": grayscale_luma,
-            "avg": grayscale_avg,
-        }[args.grayscale_method],
         smoothing=not args.disable_smoothing,
         invert=args.invert,
         colour=args.colour,
