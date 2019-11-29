@@ -168,8 +168,11 @@ def main():
         invert=args.invert,
         colour=args.colour,
     )
-    for c in result:
-        sys.stdout.write(c)
+    try:
+        for c in result:
+            sys.stdout.write(c)
+    except BrokenPipeError:
+        pass
 
 
 if __name__ == '__main__':
